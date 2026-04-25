@@ -1,6 +1,7 @@
 """Step 4 – Remove multicollinear features (VIF), then univariate selection (top-k)."""
 import numpy as np
 import pandas as pd
+from typing import List, Optional
 from sklearn.feature_selection import SelectKBest, f_classif, mutual_info_classif
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from config import VIF_THRESHOLD, TOP_K_FEATURES
@@ -8,9 +9,9 @@ from config import VIF_THRESHOLD, TOP_K_FEATURES
 
 class FeatureSelector:
     def __init__(self):
-        self.dropped_vif: list[str]     = []
-        self.selected_features: list[str] = []
-        self._selector: SelectKBest | None = None
+        self.dropped_vif: List[str]       = []
+        self.selected_features: List[str] = []
+        self._selector: Optional[SelectKBest] = None
 
     # ──────────────────────────────────────────────────────────────────────────
     def fit_transform(self, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
