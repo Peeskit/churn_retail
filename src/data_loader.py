@@ -1,6 +1,7 @@
 """Step 1 – Load the two-sheet .xlsx file and concatenate."""
 import glob
 import os
+from typing import Optional
 import pandas as pd
 from config import DATA_DIR
 
@@ -9,7 +10,7 @@ class DataLoader:
     def __init__(self, data_dir: str = DATA_DIR):
         self.data_dir = data_dir
 
-    def load(self, filepath: str | None = None) -> pd.DataFrame:
+    def load(self, filepath: Optional[str] = None) -> pd.DataFrame:
         if filepath is None:
             files = glob.glob(os.path.join(self.data_dir, "*.xlsx"))
             if not files:
