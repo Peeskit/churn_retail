@@ -4,6 +4,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import warnings
+from typing import Dict, Optional
 warnings.filterwarnings("ignore")
 
 from sklearn.model_selection import train_test_split
@@ -55,7 +56,7 @@ class ModelTrainer:
         self,
         X: pd.DataFrame,
         y: pd.Series,
-        sequences: dict[str, np.ndarray] | None = None,
+        sequences: Optional[Dict[str, np.ndarray]] = None,
     ) -> pd.DataFrame:
         os.makedirs(MODELS_DIR, exist_ok=True)
 
@@ -103,7 +104,7 @@ class ModelTrainer:
         return results_df
 
     # ──────────────────────────────────────────────────────────────────────────
-    def predict_proba(self, X: pd.DataFrame, model_name: str | None = None) -> np.ndarray:
+    def predict_proba(self, X: pd.DataFrame, model_name: Optional[str] = None) -> np.ndarray:
         name  = model_name or self.best_name_
         model = self.models_[name]
         X_s   = self.scaler.transform(X)
@@ -117,7 +118,7 @@ class ModelTrainer:
             raise ValueError("Use predict_proba_lstm() for LSTM.")
         return np.zeros(len(X))
 
-    def predict_proba_lstm(self, sequences: dict[str, np.ndarray], customer_ids) -> np.ndarray:
+    def predict_proba_lstm(self, sequences: Dict[str, np.ndarray], customer_ids) -> np.ndarray:
         model = self.models_["LSTM"]
         X_seq = self._build_seq_matrix(sequences, customer_ids)
         return model.predict(X_seq, verbose=0).flatten()

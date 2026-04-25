@@ -1,6 +1,7 @@
 """Step 3 – Feature engineering: RFM, window, sequence features, and churn label."""
 import numpy as np
 import pandas as pd
+from typing import Dict, Optional
 from config import (
     CHURN_WINDOW_DAYS,
     OBSERVATION_WINDOW_DAYS,
@@ -12,9 +13,9 @@ from config import (
 
 class FeatureEngineer:
     def __init__(self):
-        self.reference_date: pd.Timestamp | None = None
-        self.max_date: pd.Timestamp | None = None
-        self.obs_start: pd.Timestamp | None = None
+        self.reference_date: Optional[pd.Timestamp] = None
+        self.max_date: Optional[pd.Timestamp] = None
+        self.obs_start: Optional[pd.Timestamp] = None
 
     # ──────────────────────────────────────────────────────────────────────────
     # Public: tabular features + churn label
@@ -47,7 +48,7 @@ class FeatureEngineer:
     # ──────────────────────────────────────────────────────────────────────────
     # Public: sequential features for LSTM
     # ──────────────────────────────────────────────────────────────────────────
-    def build_sequences(self, df: pd.DataFrame) -> dict[str, np.ndarray]:
+    def build_sequences(self, df: pd.DataFrame) -> Dict[str, np.ndarray]:
         if self.reference_date is None:
             raise RuntimeError("Call build_tabular() first.")
 

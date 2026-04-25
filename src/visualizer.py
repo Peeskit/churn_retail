@@ -1,6 +1,7 @@
 """Step 7 – All visualisations and summary reporting."""
 import os
 import warnings
+from typing import Optional
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -143,7 +144,7 @@ def plot_roc_curves(
     trainer,
     X_te: pd.DataFrame,
     y_te: pd.Series,
-    sequences: dict | None,
+    sequences: Optional[dict],
 ) -> None:
     print("[Visualizer] ROC curves …")
     fig, ax = plt.subplots(figsize=(8, 6))

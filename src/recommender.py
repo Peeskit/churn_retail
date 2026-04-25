@@ -14,6 +14,7 @@ Strategy
 import os
 import pandas as pd
 import numpy as np
+from typing import List, Optional
 from mlxtend.frequent_patterns import apriori, association_rules
 from mlxtend.preprocessing import TransactionEncoder
 from config import (
@@ -31,8 +32,8 @@ PROMOTION_MAP = {
 
 class Recommender:
     def __init__(self):
-        self.rules: pd.DataFrame | None = None
-        self.product_pop: pd.Series | None = None   # global product popularity
+        self.rules: Optional[pd.DataFrame] = None
+        self.product_pop: Optional[pd.Series] = None
 
     # ──────────────────────────────────────────────────────────────────────────
     def fit(self, df_clean: pd.DataFrame) -> None:
@@ -124,7 +125,7 @@ class Recommender:
         return reco_df
 
     # ──────────────────────────────────────────────────────────────────────────
-    def _get_recommendations(self, purchased_products: list[str]) -> list[str]:
+    def _get_recommendations(self, purchased_products: List[str]) -> List[str]:
         recs: list[str] = []
         if self.rules is not None and not self.rules.empty:
             for prod in purchased_products:
