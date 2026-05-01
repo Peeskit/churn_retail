@@ -8,10 +8,12 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 BASE     = pathlib.Path(__file__).parent.parent
 RESULTS  = BASE / "outputs" / "results"
 MODELS   = BASE / "outputs" / "models"
+PLOTS    = BASE / "outputs" / "plots"
 
 app = FastAPI(title="Churn Dashboard API", version="1.0.0")
 app.add_middleware(
@@ -20,6 +22,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if PLOTS.exists():
+    app.mount("/plots", StaticFiles(directory=str(PLOTS)), name="plots")
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -139,3 +144,40 @@ def get_tiers():
     result["_order"] = result["value_tier"].map(tier_order)
     result = result.sort_values("_order").drop(columns="_order")
     return _safe(result)
+
+
+# ── EDA endpoints ──────────────────────────────────────────────────────────────
+
+@app.get("/api/eda/rfm-summary")
+def eda_rfm_summary():
+    """Mean and median of recency / frequency / monetary split by churn status."""
+    df = _csv("all_churn_probs.csv")
+    df["churn_actual"] = df["churn_actual"].fillna(0).astype(int)
+    result = {}
+    for col in ("recency", "frequency", "monetary"):
+        grp = (
+            df.groupby("churn_actual")[col]
+            .agg(mean="mean", median="median")
+            .reset_index()
+        )
+        grp["label"] = grp["churn_actual"].map({0: "Active", 1: "Churned"})
+        result[col] = _safe(grp[["label", "mean", "median"]])
+    return result
+
+
+@app.get("/api/eda/churn-by-recency")
+def eda_churn_by_recency():
+    """Churn rate broken down by recency bucket (days since last purchase)."""
+    df = _csv("all_churn_probs.csv")
+    df["churn_actual"] = df["churn_actual"].fillna(0).astype(int)
+    bins   = [0, 30, 60, 90, 180, 365, 99999]
+    labels = ["0–30d", "31–60d", "61–90d", "91–180d", "181–365d", "365d+"]
+    df["bucket"] = pd.cut(df["recency"], bins=bins, labels=labels, right=True)
+    grp = (
+        df.groupby("bucket", observed=True)
+        .agg(total=("customer_id", "count"), churners=("churn_actual", "sum"))
+        .reset_index()
+    )
+    grp["churn_rate"] = (grp["churners"] / grp["total"]).round(4)
+    grp["bucket"]     = grp["bucket"].astype(str)
+    return _safe(grp)

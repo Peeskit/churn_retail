@@ -3,8 +3,10 @@ import ModelPerformance from './pages/ModelPerformance'
 import Outcomes        from './pages/Outcomes'
 import WhatIf          from './pages/WhatIf'
 import Executive       from './pages/Executive'
+import EDA             from './pages/EDA'
 
 const TABS = [
+  { id: 'eda',         label: 'EDA' },
   { id: 'performance', label: 'Model Performance' },
   { id: 'outcomes',    label: 'Outcomes' },
   { id: 'whatif',      label: 'What-If Tools' },
@@ -46,6 +48,7 @@ export default function App() {
 
       {/* ── Page content ── */}
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {tab === 'eda'         && <EDA />}
         {tab === 'performance' && <ModelPerformance />}
         {tab === 'outcomes'    && <Outcomes />}
         {tab === 'whatif'      && <WhatIf />}
