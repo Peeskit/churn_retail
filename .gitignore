@@ -5,3 +5,7 @@ __pycache__/
 *.keras
 *.pkl
 .DS_Store
+ui/node_modules/
+ui/dist/
+ui/.vite/
+.env
