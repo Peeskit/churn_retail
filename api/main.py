@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -151,6 +152,19 @@ def get_tiers():
     result["_order"] = result["value_tier"].map(tier_order)
     result = result.sort_values("_order").drop(columns="_order")
     return _safe(result)
+
+
+# ── Profiling report ──────────────────────────────────────────────────────────
+
+@app.get("/api/profiling", response_class=HTMLResponse)
+def get_profiling_report():
+    path = RESULTS / "profiling_report.html"
+    if not path.exists():
+        raise HTTPException(
+            404,
+            "profiling_report.html not found — re-run: python main.py"
+        )
+    return FileResponse(str(path), media_type="text/html")
 
 
 # ── EDA endpoints ──────────────────────────────────────────────────────────────

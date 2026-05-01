@@ -1,3 +1,198 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ===========================================================
+   Slate & Steel — enterprise BI design system
+   All colors live here as HSL channels so Tailwind tokens
+   resolve via hsl(var(--token) / <alpha-value>).
+   =========================================================== */
+@layer base {
+  :root {
+    /* LIGHT */
+    --bg:         210 40% 98%;
+    --surface:    0   0%  100%;
+    --surface-2: 210 40% 96%;
+    --elevated:   0   0%  100%;
+    --border:    214 28% 88%;
+    --ring:      217 60% 55%;
+
+    --ink:       222 35%  12%;
+    --ink-2:     222 22%  26%;
+    --muted:     220 12%  46%;
+
+    --brand:     217 60%  35%;   /* slate-blue */
+    --brand-2:   215 35%  55%;   /* steel */
+    --accent:    199 80%  45%;
+    --success:   158 60%  38%;
+    --warn:       35 90%  48%;
+    --danger:    358 75%  52%;
+    --info:      217 80%  55%;
+
+    --shadow:    222 45%  18%;
+  }
+
+  html.dark {
+    /* DARK — Slate & Steel */
+    --bg:        222 30%   8%;
+    --surface:   222 25%  12%;
+    --surface-2: 222 22%  16%;
+    --elevated:  222 26%  18%;
+    --border:    222 18%  24%;
+    --ring:      215 70%  62%;
+
+    --ink:       210 30%  96%;
+    --ink-2:     215 18%  82%;
+    --muted:     217 12%  62%;
+
+    --brand:     215 70%  62%;
+    --brand-2:   210 30%  72%;
+    --accent:    195 85%  58%;
+    --success:   158 65%  52%;
+    --warn:       38 92%  60%;
+    --danger:      0 80%  65%;
+    --info:      215 80%  68%;
+
+    --shadow:      0  0%   0%;
+  }
+
+  * { border-color: hsl(var(--border)); }
+
+  html, body {
+    background: hsl(var(--bg));
+    color: hsl(var(--ink));
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar          { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track    { background: transparent; }
+  ::-webkit-scrollbar-thumb    { background: hsl(var(--border)); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted)); }
+
+  /* Range slider polish */
+  input[type='range'] {
+    accent-color: hsl(var(--brand));
+  }
+
+  /* Selection */
+  ::selection { background: hsl(var(--brand) / 0.30); color: hsl(var(--ink)); }
+}
+
+@layer components {
+  /* App background — subtle grid + radial vignette */
+  .app-bg {
+    background-color: hsl(var(--bg));
+    background-image:
+      radial-gradient(1200px 600px at 80% -10%, hsl(var(--brand) / 0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, hsl(var(--accent) / 0.08), transparent 60%),
+      radial-gradient(circle at 1px 1px, hsl(var(--border) / 0.45) 1px, transparent 0);
+    background-size: auto, auto, 28px 28px;
+    background-attachment: fixed;
+  }
+
+  /* Reusable card */
+  .card {
+    @apply bg-surface rounded-2xl border border-border shadow-card;
+    background-image: linear-gradient(180deg, hsl(var(--surface) / 1) 0%, hsl(var(--surface-2) / 1) 100%);
+  }
+  .card-flat {
+    @apply bg-surface rounded-2xl border border-border;
+  }
+  .card-pad   { @apply card p-6; }
+
+  /* KPI card hover */
+  .kpi {
+    @apply card p-5 relative overflow-hidden transition-all duration-200;
+  }
+  .kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px -12px hsl(var(--shadow) / 0.30);
+    border-color: hsl(var(--brand) / 0.45);
+  }
+  .kpi::before {
+    content: '';
+    position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: linear-gradient(90deg, hsl(var(--brand)), hsl(var(--brand-2)));
+    opacity: 0.85;
+  }
+
+  /* Pill / chip */
+  .chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wide;
+  }
+
+  /* Section title */
+  .section-title { @apply text-base font-semibold text-ink; }
+  .section-sub   { @apply text-xs text-muted mt-0.5; }
+
+  /* Inputs */
+  .input {
+    @apply bg-surface2 border border-border text-ink placeholder:text-muted
+           rounded-lg px-3 py-1.5 text-sm transition-colors
+           focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm font-medium
+           rounded-lg transition-all duration-150 select-none;
+  }
+  .btn-brand {
+    @apply btn text-white shadow-soft;
+    background: linear-gradient(135deg, hsl(var(--brand)) 0%, hsl(var(--brand-2)) 100%);
+  }
+  .btn-brand:hover { box-shadow: 0 8px 22px -8px hsl(var(--brand) / 0.55); transform: translateY(-1px); }
+  .btn-ghost {
+    @apply btn bg-surface2 text-ink2 border border-border hover:bg-elevated hover:text-ink;
+  }
+  .btn-ghost-active {
+    @apply btn text-white border border-transparent;
+    background: linear-gradient(135deg, hsl(var(--brand)) 0%, hsl(var(--brand-2)) 100%);
+  }
+
+  /* Tab nav button */
+  .tab-btn {
+    @apply relative px-5 py-3 text-sm font-medium transition-colors text-muted hover:text-ink;
+  }
+  .tab-btn-active {
+    @apply text-ink;
+  }
+  .tab-btn-active::after {
+    content: '';
+    position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+    background: linear-gradient(90deg, hsl(var(--brand)), hsl(var(--accent)));
+    border-radius: 2px;
+  }
+
+  /* Table polish */
+  .table-base { @apply min-w-full text-sm; }
+  .table-base thead tr {
+    @apply bg-surface2 border-b border-border;
+  }
+  .table-base thead th {
+    @apply px-4 py-3 text-left text-[11px] font-semibold text-muted uppercase tracking-wider;
+  }
+  .table-base tbody tr {
+    @apply border-b border-border/60 transition-colors;
+  }
+  .table-base tbody tr:hover { background: hsl(var(--brand) / 0.06); }
+  .table-base tbody td { @apply px-4 py-3 text-ink2; }
+
+  /* Status dot */
+  .dot { @apply inline-block w-2 h-2 rounded-full; }
+}
+
+@layer utilities {
+  .text-gradient-brand {
+    background: linear-gradient(135deg, hsl(var(--brand)), hsl(var(--accent)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .ring-focus {
+    @apply focus:outline-none focus:ring-2 focus:ring-brand/50 focus:ring-offset-0;
+  }
+}

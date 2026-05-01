@@ -149,12 +149,38 @@ def save_api_artifacts(trainer, selector, feat_df, churn_probs, clean_df):
     print("\n[API Artifacts] All dashboard data saved to outputs/results/ and outputs/models/")
 
 
+def run_ydata_profiling(feat_df: pd.DataFrame) -> None:
+    """Generate a YData Profiling HTML report from the feature matrix."""
+    try:
+        from ydata_profiling import ProfileReport
+    except ImportError:
+        print("\n[Profiling] ydata-profiling not installed — skipping. "
+              "Run: pip install ydata-profiling")
+        return
+
+    print("\n[Profiling] Generating YData Profiling report…")
+    profile = ProfileReport(
+        feat_df.reset_index(),
+        title="Churn Feature Matrix — YData Profiling",
+        minimal=False,
+        explorative=True,
+        progress_bar=True,
+    )
+    out_path = os.path.join(RESULTS_DIR, "profiling_report.html")
+    profile.to_file(out_path)
+    print(f"[Profiling] Report saved → {out_path}")
+
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--file", default=None, help="Path to the .xlsx dataset")
     p.add_argument(
         "--skip-lstm", action="store_true",
         help="Skip LSTM training (faster run without TF/GPU)"
+    )
+    p.add_argument(
+        "--skip-profiling", action="store_true",
+        help="Skip YData Profiling report generation (faster run)"
     )
     return p.parse_args()
 
@@ -189,6 +215,10 @@ def main():
     sequences  = None
     if not args.skip_lstm:
         sequences = engineer.build_sequences(clean_df)
+
+    # ── YData Profiling ───────────────────────────────────────────────────────
+    if not args.skip_profiling:
+        run_ydata_profiling(feat_df)
 
     # ── Churn analysis plot ───────────────────────────────────────────────────
     plot_churn_analysis(feat_df)
