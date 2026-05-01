@@ -4,6 +4,7 @@ import Outcomes        from './pages/Outcomes'
 import WhatIf          from './pages/WhatIf'
 import Executive       from './pages/Executive'
 import EDA             from './pages/EDA'
+import ChatBot         from './components/ChatBot'
 
 const TABS = [
   { id: 'eda',         label: 'EDA' },
@@ -54,6 +55,8 @@ export default function App() {
         {tab === 'whatif'      && <WhatIf />}
         {tab === 'executive'   && <Executive />}
       </main>
+
+      <ChatBot />
 
     </div>
   )

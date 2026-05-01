@@ -2,13 +2,20 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
+from typing import List
 
+from dotenv import load_dotenv
+import openai
+
+load_dotenv(pathlib.Path(__file__).parent.parent / ".env")
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 BASE     = pathlib.Path(__file__).parent.parent
 RESULTS  = BASE / "outputs" / "results"
@@ -181,3 +188,206 @@ def eda_churn_by_recency():
     grp["churn_rate"] = (grp["churners"] / grp["total"]).round(4)
     grp["bucket"]     = grp["bucket"].astype(str)
     return _safe(grp)
+
+
+# ── Chatbot ────────────────────────────────────────────────────────────────────
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+
+
+def _build_system_prompt() -> str:
+    """Build a system prompt from available pipeline artifacts."""
+    parts = ["You are an expert data science assistant for a Customer Churn Prediction project on the UCI Online Retail II dataset."]
+
+    try:
+        summary = _json("summary_stats.json")
+        parts.append(f"""
+## Dataset Summary
+- Total customers: {summary.get('total_customers')}
+- Unique countries: {summary.get('unique_countries')}
+- Total revenue: £{summary.get('total_revenue', 0):,.0f}
+- Churn rate: {summary.get('churn_rate', 0) * 100:.1f}%
+- Date range: {summary.get('date_range_start')} to {summary.get('date_range_end')}
+""")
+    except Exception:
+        pass
+
+    try:
+        fi = _json("feature_importance.json")
+        lgbm_top = sorted(fi.get("lgbm", {}).items(), key=lambda x: -x[1])[:10]
+        xgb_top  = sorted(fi.get("xgboost", {}).items(), key=lambda x: -x[1])[:10]
+        parts.append(f"""
+## Top Features (LightGBM): {', '.join(f'{k}({v:.4f})' for k,v in lgbm_top)}
+## Top Features (XGBoost):  {', '.join(f'{k}({v:.4f})' for k,v in xgb_top)}
+""")
+    except Exception:
+        pass
+
+    try:
+        df_metrics = _csv("model_results.csv")
+        df_metrics = df_metrics.rename(columns={df_metrics.columns[0]: "model"})
+        parts.append("\n## Model Performance\n" + df_metrics.to_string(index=False))
+    except Exception:
+        pass
+
+    try:
+        df_recs = _csv("retention_recommendations.csv")
+        tier_stats = (
+            df_recs.groupby("value_tier")
+            .agg(
+                customers       = ("customer_id",       "count"),
+                avg_churn_prob  = ("churn_probability",  "mean"),
+                high_risk_count = ("churn_probability",  lambda x: (x >= 0.7).sum()),
+            )
+            .reset_index()
+        )
+        parts.append(f"""
+## Retention Recommendations List
+- Total customers with recommendations: {len(df_recs)}
+- Columns available for export: customer_id, churn_probability, value_tier, top_purchased, recommended_products, promotion
+{tier_stats.to_string(index=False)}
+""")
+    except Exception:
+        pass
+
+    parts.append("""
+## Pipeline Overview
+- Feature engineering: RFM (Recency, Frequency, Monetary), order patterns, cancellation rates, country, day-of-week behaviour
+- Feature selection: VIF-based collinearity removal
+- Models trained: LightGBM, XGBoost, Artificial Neural Network (ANN/Keras), LSTM
+- Evaluation metrics: Accuracy, Precision, Recall, F1, AUC-ROC
+- Business segments: High / Medium / Low value tiers based on monetary quartiles
+- Association rules: Apriori algorithm on product co-purchases
+
+## Export Capability
+You can export a filtered customer whitelist for churn campaigns by calling the export_churn_whitelist function.
+Use it whenever the user asks for a list, export, download, whitelist, or campaign target of customers.
+
+Answer concisely and accurately. If asked about something not in the data, say so clearly.
+""")
+
+    return "\n".join(parts)
+
+
+EXPORT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "export_churn_whitelist",
+        "description": (
+            "Filter the retention recommendations list and export matching customers "
+            "as a churn campaign whitelist. Call this whenever the user asks to export, "
+            "download, or get a list of at-risk customers."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tier": {
+                    "type": "string",
+                    "enum": ["High", "Medium", "Low", "All"],
+                    "description": "Customer value tier to target. Use 'All' for no tier filter.",
+                },
+                "min_churn_probability": {
+                    "type": "number",
+                    "description": "Minimum churn probability threshold (0.0–1.0). Default 0.5.",
+                },
+                "max_customers": {
+                    "type": "integer",
+                    "description": "Maximum number of customers to include. Default 200.",
+                },
+            },
+            "required": [],
+        },
+    },
+}
+
+
+def _run_export(tier: str, min_churn_probability: float, max_customers: int) -> list:
+    df = _csv("retention_recommendations.csv")
+    if tier and tier != "All":
+        df = df[df["value_tier"] == tier]
+    df = df[df["churn_probability"] >= min_churn_probability]
+    df = df.sort_values("churn_probability", ascending=False).head(max_customers)
+    return _safe(df)
+
+
+_OPENAI_CLIENT: openai.OpenAI | None = None
+
+def _get_client() -> openai.OpenAI:
+    global _OPENAI_CLIENT
+    if _OPENAI_CLIENT is None:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(500, "OPENAI_API_KEY environment variable not set.")
+        _OPENAI_CLIENT = openai.OpenAI(api_key=api_key)
+    return _OPENAI_CLIENT
+
+
+@app.post("/api/chat")
+def chat(req: ChatRequest):
+    client   = _get_client()
+    system_prompt = _build_system_prompt()
+
+    messages = [{"role": "system", "content": system_prompt}]
+    messages += [{"role": m.role, "content": m.content} for m in req.messages]
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=1024,
+        messages=messages,
+        tools=[EXPORT_TOOL],
+        tool_choice="auto",
+    )
+
+    choice      = response.choices[0]
+    export_data = None
+
+    if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
+        tool_call = choice.message.tool_calls[0]
+        args      = json.loads(tool_call.function.arguments)
+
+        export_data = _run_export(
+            tier                  = args.get("tier", "All"),
+            min_churn_probability = args.get("min_churn_probability", 0.5),
+            max_customers         = args.get("max_customers", 200),
+        )
+
+        # Feed tool result back so the model can write a natural reply
+        messages.append({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id":       tool_call.id,
+                    "type":     "function",
+                    "function": {
+                        "name":      tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    },
+                }
+            ],
+        })
+        messages.append({
+            "role":         "tool",
+            "tool_call_id": tool_call.id,
+            "content":      json.dumps({
+                "customer_count": len(export_data),
+                "tier_filter":    args.get("tier", "All"),
+                "min_prob":       args.get("min_churn_probability", 0.5),
+            }),
+        })
+
+        followup = client.chat.completions.create(
+            model="gpt-4o-mini",
+            max_tokens=512,
+            messages=messages,
+        )
+        reply = followup.choices[0].message.content
+    else:
+        reply = choice.message.content
+
+    return {"response": reply, "export": export_data}
