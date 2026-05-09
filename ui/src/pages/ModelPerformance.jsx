@@ -18,6 +18,72 @@ function TabBtn({ active, onClick, children }) {
   )
 }
 
+function ConfusionMatrix({ data, modelName }) {
+  if (!data?.[modelName]) return null
+  const { TP, TN, FP, FN } = data[modelName]
+  const total     = TP + TN + FP + FN
+  const precision = TP + FP > 0 ? TP / (TP + FP) : 0
+  const recall    = TP + FN > 0 ? TP / (TP + FN) : 0
+  const f1        = precision + recall > 0 ? 2 * precision * recall / (precision + recall) : 0
+  const accuracy  = total > 0 ? (TP + TN) / total : 0
+
+  const cells = [
+    { label: 'True Positive',  abbr: 'TP', value: TP, cls: 'bg-success/15 border-success/40 text-success',  note: 'Correctly predicted churners' },
+    { label: 'False Positive', abbr: 'FP', value: FP, cls: 'bg-warn/15    border-warn/40    text-warn',     note: 'Active flagged as churners' },
+    { label: 'False Negative', abbr: 'FN', value: FN, cls: 'bg-danger/15  border-danger/40  text-danger',   note: 'Churners missed by model' },
+    { label: 'True Negative',  abbr: 'TN', value: TN, cls: 'bg-brand/10   border-brand/30   text-brand',    note: 'Correctly predicted actives' },
+  ]
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* 2×2 grid */}
+      <div>
+        <div className="flex text-xs font-semibold text-muted mb-1 pl-24">
+          <span className="flex-1 text-center">Predicted Churn</span>
+          <span className="flex-1 text-center">Predicted Active</span>
+        </div>
+        <div className="flex gap-3">
+          <div className="flex flex-col justify-around text-xs font-semibold text-muted text-right w-20 shrink-0 pr-2">
+            <span>Actual Churn</span>
+            <span>Actual Active</span>
+          </div>
+          <div className="flex-1 grid grid-cols-2 gap-3">
+            {cells.map(c => (
+              <div key={c.abbr} className={`rounded-2xl border p-5 flex flex-col items-center justify-center text-center ${c.cls}`}>
+                <span className="text-3xl font-bold tabular-nums">{c.value.toLocaleString()}</span>
+                <span className="text-sm font-semibold mt-1">{c.abbr}</span>
+                <span className="text-xs opacity-70 mt-0.5">{c.label}</span>
+                <span className="text-[10px] opacity-55 mt-1">{c.note}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Derived metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Precision', value: precision, hint: 'TP / (TP + FP)' },
+          { label: 'Recall',    value: recall,    hint: 'TP / (TP + FN)' },
+          { label: 'F1 Score',  value: f1,        hint: '2 · P · R / (P + R)' },
+          { label: 'Accuracy',  value: accuracy,  hint: '(TP + TN) / Total' },
+        ].map(m => (
+          <div key={m.label} className="card-flat p-4 text-center">
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-wider">{m.label}</p>
+            <p className="text-2xl font-bold text-ink tabular-nums mt-1">{(m.value * 100).toFixed(1)}%</p>
+            <p className="text-[10px] text-muted font-mono mt-1">{m.hint}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Test set size note */}
+      <p className="text-xs text-muted text-center">
+        Based on 20% hold-out test set · {total.toLocaleString()} customers total
+      </p>
+    </div>
+  )
+}
+
 function MissingData() {
   return (
     <div className="rounded-xl border border-warn/40 bg-warn/10 text-warn p-4 text-sm flex items-start gap-3">
@@ -60,8 +126,10 @@ export default function ModelPerformance() {
 
   const { data: metrics, loading: mLoad, error: mErr } = useApi('/api/model-metrics')
   const { data: imp,     loading: iLoad, error: iErr } = useApi('/api/feature-importance')
+  const { data: cmData } = useApi('/api/confusion-matrix')
   const [view,     setView]     = useState('table')
   const [impModel, setImpModel] = useState('lgbm')
+  const [cmModel,  setCmModel]  = useState('LGBM')
 
   const bestByMetric = METRICS.reduce((acc, m) => {
     if (metrics) acc[m] = Math.max(...metrics.map(r => r[m] ?? 0))
@@ -82,6 +150,7 @@ export default function ModelPerformance() {
             <TabBtn active={view === 'table'}      onClick={() => setView('table')}>Metrics Table</TabBtn>
             <TabBtn active={view === 'chart'}      onClick={() => setView('chart')}>Bar Chart</TabBtn>
             <TabBtn active={view === 'importance'} onClick={() => setView('importance')}>Feature Importance</TabBtn>
+            <TabBtn active={view === 'confusion'}  onClick={() => setView('confusion')}>Confusion Matrix</TabBtn>
           </div>
         }
       />
@@ -221,6 +290,35 @@ export default function ModelPerformance() {
             )}
           </div>
         )
+      )}
+
+      {/* ── Confusion Matrix ── */}
+      {view === 'confusion' && (
+        <div className="card-pad animate-fade-in">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <h3 className="section-title">Confusion Matrix</h3>
+            <div className="flex gap-1.5 p-1 rounded-lg bg-surface2 border border-border">
+              {['LGBM', 'XGBoost', 'ANN', 'LSTM'].map(m => (
+                <button
+                  key={m}
+                  onClick={() => setCmModel(m)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                    cmModel === m
+                      ? 'bg-brand-gradient text-white shadow-soft'
+                      : 'text-ink2 hover:text-ink'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+          {!cmData ? (
+            <MissingData />
+          ) : (
+            <ConfusionMatrix data={cmData} modelName={cmModel} />
+          )}
+        </div>
       )}
     </div>
   )

@@ -12,6 +12,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     roc_auc_score, f1_score, precision_score,
     recall_score, accuracy_score, classification_report,
+    confusion_matrix,
 )
 
 import lightgbm as lgb
@@ -29,7 +30,13 @@ from config import (
 )
 
 
-# ── Metrics helper ─────────────────────────────────────────────────────────────
+# ── Metrics helpers ────────────────────────────────────────────────────────────
+def _cm(y_true, y_prob, threshold=0.5) -> dict:
+    y_pred = (y_prob >= threshold).astype(int)
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    return {"TP": int(tp), "TN": int(tn), "FP": int(fp), "FN": int(fn)}
+
+
 def _metrics(y_true, y_prob, threshold=0.5) -> dict:
     y_pred = (y_prob >= threshold).astype(int)
     return {
@@ -46,6 +53,7 @@ class ModelTrainer:
         self.scaler     = StandardScaler()
         self.models_    : dict = {}
         self.results_   : dict = {}
+        self.cm_        : dict = {}
         self.best_name_ : str  = ""
         self.best_model_        = None
 
@@ -137,6 +145,7 @@ class ModelTrainer:
         prob = model.predict_proba(X_te)[:, 1]
         self.models_["LGBM"] = model
         self.results_["LGBM"] = _metrics(y_te, prob)
+        self.cm_["LGBM"]     = _cm(y_te, prob)
         joblib.dump(model, os.path.join(MODELS_DIR, "lgbm.pkl"))
         print(f"    AUC={self.results_['LGBM']['AUC']}  F1={self.results_['LGBM']['F1']}")
 
@@ -148,6 +157,7 @@ class ModelTrainer:
         prob = model.predict_proba(X_te)[:, 1]
         self.models_["XGBoost"] = model
         self.results_["XGBoost"] = _metrics(y_te, prob)
+        self.cm_["XGBoost"]     = _cm(y_te, prob)
         joblib.dump(model, os.path.join(MODELS_DIR, "xgboost.pkl"))
         print(f"    AUC={self.results_['XGBoost']['AUC']}  F1={self.results_['XGBoost']['F1']}")
 
@@ -180,6 +190,7 @@ class ModelTrainer:
         prob = model.predict(X_te_s, verbose=0).flatten()
         self.models_["ANN"] = model
         self.results_["ANN"] = _metrics(y_te, prob)
+        self.cm_["ANN"]     = _cm(y_te, prob)
         model.save(os.path.join(MODELS_DIR, "ann.keras"))
         print(f"    AUC={self.results_['ANN']['AUC']}  F1={self.results_['ANN']['F1']}")
 
@@ -226,6 +237,7 @@ class ModelTrainer:
         prob = model.predict(X_seq_te, verbose=0).flatten()
         self.models_["LSTM"] = model
         self.results_["LSTM"] = _metrics(y_te, prob)
+        self.cm_["LSTM"]     = _cm(y_te, prob)
         model.save(os.path.join(MODELS_DIR, "lstm.keras"))
         print(f"    AUC={self.results_['LSTM']['AUC']}  F1={self.results_['LSTM']['F1']}")
 

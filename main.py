@@ -146,6 +146,10 @@ def save_api_artifacts(trainer, selector, feat_df, churn_probs, clean_df):
     with open(os.path.join(RESULTS_DIR, "summary_stats.json"), "w") as f:
         json.dump(summary, f, indent=2)
 
+    # 9. Confusion matrices (per model, on test split)
+    with open(os.path.join(RESULTS_DIR, "confusion_matrices.json"), "w") as f:
+        json.dump(trainer.cm_, f, indent=2)
+
     print("\n[API Artifacts] All dashboard data saved to outputs/results/ and outputs/models/")
 
 

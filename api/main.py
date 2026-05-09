@@ -80,6 +80,11 @@ def get_feature_importance():
     return _json("feature_importance.json")
 
 
+@app.get("/api/confusion-matrix")
+def get_confusion_matrix():
+    return _json("confusion_matrices.json")
+
+
 @app.get("/api/customers")
 def get_customers(
     page:     int = Query(1, ge=1),
